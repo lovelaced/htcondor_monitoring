@@ -14,7 +14,6 @@ import struct
 # rcv_ssthresh: 1964430 rtt: 3000 snd_ssthresh: 2147483647 snd_cwnd: 10 \\
 # advmss: 65483 reordering: 3 rcv_rtt: 1000 rcv_space: 4451824 total_retrans: 0
 
-
 LOGFILE = "/path/to/XferStatsLog"
 TMPFILE = "/tmp/xferstats_byte"
 SCHEMA = "your.graphite.schema."
@@ -53,10 +52,10 @@ def run(sock, delay):
             pass
 
         # start reading the file where we left off
-        logfile.seek(curr_byte,0)
+        logfile.seek(curr_byte, 0)
         tuples = ([])
 
-       # check to make sure the line is valid
+        # check to make sure the line is valid
         for line in logfile:
             if len(line.split()) is not 55:
                 continue
@@ -65,22 +64,19 @@ def run(sock, delay):
             pattern = '%m/%d/%y %H:%M:%S'
             epoch = int(time.mktime(time.strptime(timestamp, pattern)))
 
-            type = line.split()[6][:-1]
+            xfer_type = line.split()[6][:-1]
             logline = " ".join(line.split()[7:])
             # format the line for easy dict creation
             entry = logline.replace(": ", "=")
-            metrics = dict( item.split("=") for item in entry.split() )
-
+            metrics = dict(item.split("=") for item in entry.split())
 
             for key in metrics.keys():
-
                 # format our data:
                 # pools.chtc.jobs.xferstats.download.attr
                 # pools.chtc.jobs.xferstats.upload.attr
                 if key != "JobId":
-                    message = SCHEMA + type + "." + key
+                    message = SCHEMA + xfer_type + "." + key
                     tuples.append((message, (epoch, metrics[key])))
-
 
             #  pickle our data and send it
             package = pickle.dumps(tuples, 1)
@@ -114,9 +110,10 @@ def main():
 
     sock = socket.socket()
     try:
-        sock.connect( (CARBON_SERVER, CARBON_PICKLE_PORT) )
+        sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
     except socket.error:
-        raise SystemExit("Couldn't connect to %(server)s on port %(port)d, is carbon-cache.py running?" % { 'server':CARBON_SERVER, 'port':CARBON_PICKLE_PORT })
+        raise SystemExit("Couldn't connect to %(server)s on port %(port)d, is carbon-cache.py running?" %
+                         {'server': CARBON_SERVER, 'port': CARBON_PICKLE_PORT})
 
     try:
         run(sock, delay)
