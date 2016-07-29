@@ -53,7 +53,7 @@ def run(sock, delay):
 
         # start reading the file where we left off
         logfile.seek(curr_byte, 0)
-        tuples = ([])
+        tuples = []
 
         # check to make sure the line is valid
         for line in logfile:
@@ -69,7 +69,7 @@ def run(sock, delay):
             # format the line for easy dict creation
             entry = logline.replace(": ", "=")
             metrics = dict(item.split("=") for item in entry.split())
-
+            metrics["dest"] = str(metrics["dest"]).replace('.', '_')
             for key in metrics.keys():
                 # format our data:
                 # pools.chtc.jobs.xferstats.download.attr
@@ -79,12 +79,12 @@ def run(sock, delay):
                     tuples.append((message, (epoch, metrics[key])))
 
             #  pickle our data and send it
-            package = pickle.dumps(tuples, 1)
-            size = struct.pack('!L', len(package))
+            package = pickle.dumps(tuples, protocol=2)
+            header = struct.pack('!L', len(package))
+            message = header + package
             # make sure we don't get a broken pipe
             try:
-                sock.sendall(size)
-                sock.sendall(package)
+                sock.sendall(message)
             except socket.error:
                 sock.close()
                 sock = socket.socket()
