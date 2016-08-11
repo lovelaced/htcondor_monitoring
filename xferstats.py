@@ -8,7 +8,7 @@ import socket
 import struct
 from subprocess import Popen, PIPE
 
-# Reads from an HTCondor XferStatsLog and sends pickled data to a carbon-aggregator server.
+# Reads from an HTCondor XferStatsLog and sends pickled data to a carbon server.
 # An example log entry looks like the following:
 #
 # 06/09/16 14:53:10 File Transfer Download: JobId: 626.19 files: 7 \\
@@ -214,7 +214,7 @@ def run(sock, delay):
                 print 'sending %s metrics (%.1f KB, last timestamp %s)' % \
                     (len(tuples), sys.getsizeof(message)/1024., timestamp)
 
-                # Push to carbon-aggregator
+                # Push to carbon
                 try:
                     sock.sendall(message)
                 except socket.error:
@@ -228,7 +228,7 @@ def run(sock, delay):
                     with open(TMPFILE, 'w') as tmpfile:
                         tmpfile.write(str(curr_byte))
                 
-                # Wait 5 seconds to push to carbon-aggregator again
+                # Wait 5 seconds to push to carbon again
                 time.sleep(5)
 
         # If at the end of the file, push everything we have
@@ -242,7 +242,7 @@ def run(sock, delay):
             print 'sending %s metrics (%.1f KB, last timestamp %s)' % \
                 (len(tuples), sys.getsizeof(message)/1024., timestamp)
 
-            # Push to carbon-aggregator
+            # Push to carbon
             try:
                 sock.sendall(message)
             except socket.error:
@@ -270,7 +270,7 @@ def main():
         else:
             sys.stderr.write("Ignoring non-integer argument. Using default: %ss\n" % delay)
 
-    # Open connection to carbon-aggregator
+    # Open connection to carbon
     sock = socket.socket()
     try:
         sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
