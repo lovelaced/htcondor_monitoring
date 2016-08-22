@@ -174,7 +174,12 @@ def run(sock, delay):
             epoch = int(time.mktime(time.strptime(timestamp, pattern)))
 
             # Get the transfer type (Upload/Download)
+            # and rename due to FW's request...
             xfer_type = line.split()[6][:-1]
+            if xfer_type == "Download":
+                xfer_type = "OutputFiles"
+            else:
+                xfer_type = "InputFiles"
 
             # Format the rest of the line for easy dict creation
             logline = " ".join(line.split()[7:])
