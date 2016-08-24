@@ -36,9 +36,8 @@ d = pickle.load(open('osg_ip_dicts.pkl', 'rb'))
 ip2site = d['ip2site']
 cidr2site = d['cidr2site']
 
-# functions for checking if IP is in CIDR
+# Functions for checking if IP is in CIDR
 # http://diego.assencio.com/?index=85e407d6c771ba2bc5f02b17714241e2
-
 def ip_in_subnetwork(ip_address, subnetwork):
  
     """
@@ -216,22 +215,26 @@ def run(sock, delay):
                 header = struct.pack('!L', len(package))
                 message = header + package
 
-                print 'sending %s metrics (%.1f KB, last timestamp %s)' % \
-                    (len(tuples), sys.getsizeof(message)/1024., timestamp)
+                print '%.1f - Sending %s metrics (%.1f KB, last timestamp %s)' % \
+                    (time.time(), len(tuples), sys.getsizeof(message)/1024., timestamp)
 
                 # Push to carbon
-                try:
-                    sock.sendall(message)
-                except socket.error:
-                    print socket.error
-                    sock.close()
-                    sock = socket.socket()
-                    sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
-                else: # only clear data and store LOGFILE location if successful
-                    tuples = []
-                    curr_byte = logfile.tell()
-                    with open(TMPFILE, 'w') as tmpfile:
-                        tmpfile.write(str(curr_byte))
+                while True: # Keep trying until it works
+                    try:
+                        sock.sendall(message)
+                    except socket.error:
+                        print '%.1f - Error connecting to %s, retrying in %ds...' % \
+                          (time.time(), CARBON_SERVER, delay)
+                        sock.close()
+                        time.sleep(delay)
+                        sock = socket.socket()
+                        sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
+                    else: # Only clear data and store LOGFILE location once successful
+                        tuples = []
+                        curr_byte = logfile.tell()
+                        with open(TMPFILE, 'w') as tmpfile:
+                            tmpfile.write(str(curr_byte))
+                        break # Continue
                 
                 # Wait 5 seconds to push to carbon again
                 time.sleep(5)
@@ -244,25 +247,28 @@ def run(sock, delay):
             header = struct.pack('!L', len(package))
             message = header + package
 
-            print 'sending %s metrics (%.1f KB, last timestamp %s)' % \
-                (len(tuples), sys.getsizeof(message)/1024., timestamp)
+            print '%.1f - Sending %s metrics (%.1f KB, last timestamp %s)' % \
+                    (time.time(), len(tuples), sys.getsizeof(message)/1024., timestamp)
 
             # Push to carbon
-            try:
-                sock.sendall(message)
-            except socket.error:
-                print socket.error
-                sock.close()
-                sock = socket.socket()
-                sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
-            else: # only clear data and store LOGFILE location if successful
-                tuples = []
-                curr_byte = logfile.tell()
-                with open(TMPFILE, 'w') as tmpfile:
-                    tmpfile.write(str(curr_byte))
+            while True: # Keep trying until it works
+                try:
+                    sock.sendall(message)
+                except socket.error:
+                    print '%.1f - Error connecting to %s, retrying in %ds...' % \
+                      (time.time(), CARBON_SERVER, delay)
+                    sock.close()
+                    time.sleep(delay)
+                    sock = socket.socket()
+                    sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
+                else: # Only clear data and store LOGFILE location if successful
+                    tuples = []
+                    curr_byte = logfile.tell()
+                    with open(TMPFILE, 'w') as tmpfile:
+                        tmpfile.write(str(curr_byte))
+                    break # Continue
                 
-        # Wait to check LOGFILE again
-        time.sleep(delay)
+        time.sleep(delay) # Wait to check LOGFILE again
 
 def main():
 
@@ -280,7 +286,8 @@ def main():
     try:
         sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
     except socket.error:
-        raise SystemExit("Couldn't connect to %(server)s on port %(port)d, is carbon-cache.py running?" % {'server': CARBON_SERVER, 'port': CARBON_PICKLE_PORT})
+        raise SystemExit("Couldn't connect to %(server)s on port %(port)d, is carbon-cache.py running?"
+                             % {'server': CARBON_SERVER, 'port': CARBON_PICKLE_PORT})
 
     try:
         run(sock, delay)
