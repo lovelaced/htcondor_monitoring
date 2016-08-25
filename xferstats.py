@@ -210,7 +210,7 @@ def run(sock, delay):
                     message = ".".join([SCHEMA, HOSTNAME, pool_site, xfer_type, key])
 
                     # Store the metrics, aggregate on duplicate key
-                    if (epoch, message) in tuples:
+                    if (epoch, message) in agg_metrics:
                         agg_metrics[(epoch, message)] += metrics[key]
                     else:
                         agg_metrics[(epoch, message)]  = metrics[key]
