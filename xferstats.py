@@ -211,9 +211,9 @@ def run(sock, delay):
 
                     # Store the metrics, aggregate on duplicate key
                     if (epoch, message) in agg_metrics:
-                        agg_metrics[(epoch, message)] += metrics[key]
+                        agg_metrics[(epoch, message)] += float(metrics[key])
                     else:
-                        agg_metrics[(epoch, message)]  = metrics[key]
+                        agg_metrics[(epoch, message)]  = float(metrics[key])
 
             # Only push ~5,000 entries at a time
             if len(agg_metrics) >= 5000:
@@ -227,7 +227,7 @@ def run(sock, delay):
                     if key in SUM_METRICS:
                         tuples.append((message, (epoch, value)))
                     else: # Send averaged values for non-summed metrics
-                        n = float(agg_metrics[(epoch, message.replace(key, 'jobs'))])
+                        n = agg_metrics[(epoch, message.replace(key, 'jobs'))]
                         tuples.append((message, (epoch, value/n)))
 
                 # Pickle entries
@@ -271,7 +271,7 @@ def run(sock, delay):
                 if key in SUM_METRICS:
                     tuples.append((message, (epoch, value)))
                 else: # Send averaged values for non-summed metrics
-                    n = float(agg_metrics[(epoch, message.replace(key, 'jobs'))])
+                    n = agg_metrics[(epoch, message.replace(key, 'jobs'))]
                     tuples.append((message, (epoch, value/n)))
 
             # Pickle entries
