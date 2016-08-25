@@ -227,7 +227,10 @@ def run(sock, delay):
                     if key in SUM_METRICS:
                         tuples.append((message, (epoch, value)))
                     else: # Send averaged values for non-summed metrics
-                        n = agg_metrics[(epoch, message.replace(key, 'jobs'))]
+                        schema = message.split('.')
+                        schema[-1] = 'jobs'
+                        jobs_schema = '.'.join(schema)
+                        n = agg_metrics[(epoch, jobs_schema)]
                         tuples.append((message, (epoch, value/n)))
 
                 # Pickle entries
@@ -271,7 +274,10 @@ def run(sock, delay):
                 if key in SUM_METRICS:
                     tuples.append((message, (epoch, value)))
                 else: # Send averaged values for non-summed metrics
-                    n = agg_metrics[(epoch, message.replace(key, 'jobs'))]
+                    schema = message.split('.')
+                    schema[-1] = 'jobs'
+                    jobs_schema = '.'.join(schema)
+                    n = agg_metrics[(epoch, jobs_schema)]
                     tuples.append((message, (epoch, value/n)))
 
             # Pickle entries
