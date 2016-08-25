@@ -25,6 +25,8 @@ HOSTNAME = re.sub('[^0-9a-zA-Z]+', '_', socket.gethostname())
 CARBON_SERVER = 'monitor0.chtc.wisc.edu'
 CARBON_PICKLE_PORT = 2004
 DELAY = 60
+SUM_METRICS = ['jobs', 'bytes', 'files', 'seconds', 'lost', 'reordered',
+                   'retrans', 'unacked', 'sacked', 'fackets']
 
 # Validate input file
 if not os.path.isfile(LOGFILE):
@@ -137,8 +139,8 @@ def run(sock, delay):
 
     logfile = open(LOGFILE)
 
-    # Initialize list of tuples for sending to Carbon
-    tuples = []
+    # Initialize dict of aggregated metrics for sending to Carbon
+    agg_metrics = {}
 
     # Read LOGFILE every DELAY seconds
     while True:
@@ -184,6 +186,7 @@ def run(sock, delay):
             logline = " ".join(line.split()[7:])
             entry = logline.replace(": ", "=")
             metrics = dict(item.split("=") for item in entry.split())
+            metrics['jobs'] = 1
 
             # Determine the pool location
             ip = metrics["dest"]
@@ -205,10 +208,27 @@ def run(sock, delay):
                 #   University_of_Wisconsin-Madison.Download.attr
                 if (key != "JobId") and (key != "dest"):
                     message = ".".join([SCHEMA, HOSTNAME, pool_site, xfer_type, key])
-                    tuples.append((message, (epoch, metrics[key])))
+
+                    # Store the metrics, aggregate on duplicate key
+                    if (epoch, message) in agg_metrics:
+                        agg_metrics[(epoch, message)] += metrics[key]
+                    else:
+                        agg_metrics[(epoch, message)]  = metrics[key]
 
             # Only push ~5,000 entries at a time
-            if len(tuples) >= 5000:
+            if len(agg_metrics) >= 5000:
+
+                # Initialize a list of tuples
+                tuples = []
+
+                # Build list of tuples from aggregated dict
+                for (epoch, message), value in agg_metrics.iteritems():
+                    key = message.split('.')[-1]
+                    if key in SUM_METRICS:
+                        tuples.append((message, (epoch, value)))
+                    else: # Send averaged values for non-summed metrics
+                        n = float(agg_metrics[(epoch, message.replace(key, 'jobs'))])
+                        tuples.append((message, (epoch, value/n)))
 
                 # Pickle entries
                 package = pickle.dumps(tuples, protocol=2)
@@ -230,7 +250,7 @@ def run(sock, delay):
                         sock = socket.socket()
                         sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
                     else: # Only clear data and store LOGFILE location once successful
-                        tuples = []
+                        agg_metrics = {}
                         curr_byte = logfile.tell()
                         with open(TMPFILE, 'w') as tmpfile:
                             tmpfile.write(str(curr_byte))
@@ -240,7 +260,19 @@ def run(sock, delay):
                 time.sleep(5)
 
         # If at the end of the file, push everything we have
-        if len(tuples) > 0:
+        if len(agg_metrics) > 0:
+
+            # Initialize a list of tuples
+            tuples = []
+
+            # Build list of tuples from aggregated dict
+            for (epoch, message), value in agg_metrics.iteritems():
+                key = message.split('.')[-1]
+                if key in SUM_METRICS:
+                    tuples.append((message, (epoch, value)))
+                else: # Send averaged values for non-summed metrics
+                    n = float(agg_metrics[(epoch, message.replace(key, 'jobs'))])
+                    tuples.append((message, (epoch, value/n)))
 
             # Pickle entries
             package = pickle.dumps(tuples, protocol=2)
@@ -262,7 +294,7 @@ def run(sock, delay):
                     sock = socket.socket()
                     sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
                 else: # Only clear data and store LOGFILE location if successful
-                    tuples = []
+                    agg_metrics = {}
                     curr_byte = logfile.tell()
                     with open(TMPFILE, 'w') as tmpfile:
                         tmpfile.write(str(curr_byte))
