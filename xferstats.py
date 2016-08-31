@@ -126,6 +126,26 @@ def subnetwork_to_ip_range(subnetwork):
  
     raise ValueError("invalid subnetwork")
 
+def connect_to_carbon(server, port, retry_time):
+    '''
+    Connect to the carbon pickle receiver,
+    keep trying until it connects,
+    then return the socket.
+    '''
+    
+    sock = socket.socket()
+    
+    while True:
+        try:
+            sock.connect((server, port))
+        except socket.error:
+            print '%.1f - Error connecting to %s:%d, retrying in %ds...' % \
+              (time.time(), server, port, retry_time)
+            time.sleep(retry_time)
+        else:
+            break
+    return sock
+
 def run(sock, delay):
 
     # Open LOGFILE where reading last left off
@@ -246,12 +266,8 @@ def run(sock, delay):
                     try:
                         sock.sendall(message)
                     except socket.error:
-                        print '%.1f - Error connecting to %s, retrying in %ds...' % \
-                          (time.time(), CARBON_SERVER, delay)
                         sock.close()
-                        time.sleep(delay)
-                        sock = socket.socket()
-                        sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
+                        sock = connect_to_carbon(CARBON_SERVER, CARBON_PICKLE_PORT, delay)
                     else: # Only clear data and store LOGFILE location once successful
                         agg_metrics = {}
                         curr_byte = logfile.tell()
@@ -293,12 +309,8 @@ def run(sock, delay):
                 try:
                     sock.sendall(message)
                 except socket.error:
-                    print '%.1f - Error connecting to %s, retrying in %ds...' % \
-                      (time.time(), CARBON_SERVER, delay)
                     sock.close()
-                    time.sleep(delay)
-                    sock = socket.socket()
-                    sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
+                    sock = connect_to_carbon(CARBON_SERVER, CARBON_PICKLE_PORT, delay)
                 else: # Only clear data and store LOGFILE location if successful
                     agg_metrics = {}
                     curr_byte = logfile.tell()
@@ -319,15 +331,8 @@ def main():
         else:
             sys.stderr.write("Ignoring non-integer argument. Using default: %ss\n" % delay)
 
-    # Open connection to carbon
-    sock = socket.socket()
     try:
-        sock.connect((CARBON_SERVER, CARBON_PICKLE_PORT))
-    except socket.error:
-        raise SystemExit("Couldn't connect to %(server)s on port %(port)d, is carbon-cache.py running?"
-                             % {'server': CARBON_SERVER, 'port': CARBON_PICKLE_PORT})
-
-    try:
+        sock = connect_to_carbon(CARBON_SERVER, CARBON_PICKLE_PORT, delay)
         run(sock, delay)
     except KeyboardInterrupt:
         sys.stderr.write("\nExiting on CTRL-c\n")
