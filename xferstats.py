@@ -185,8 +185,14 @@ def run(sock, delay):
         # Loop over all lines in LOGFILE
         for line in logfile:
 
-            # Check for validity
-            if len(line.split()) is not 55:
+            # Check if stats are originating from the schedd or the starter
+            origin = 'schedd'
+            if '(peer stats from starter)' in line:
+                origin = 'starter'
+                line = line.split('(peer stats from starter):')[1].lstrip()
+            
+            # Check for validity (56 tokens per line)
+            if len(line.split()) is not 56:
                 continue
 
             # Get the UNIX timestamp
@@ -196,14 +202,14 @@ def run(sock, delay):
 
             # Get the transfer type (Upload/Download)
             # and rename due to FW's request...
-            xfer_type = line.split()[6][:-1]
+            xfer_type = line.split()[7][:-1]
             if xfer_type == "Download":
                 xfer_type = "OutputFiles"
             else:
                 xfer_type = "InputFiles"
 
             # Format the rest of the line for easy dict creation
-            logline = " ".join(line.split()[7:])
+            logline = " ".join(line.split()[8:])
             entry = logline.replace(": ", "=")
             metrics = dict(item.split("=") for item in entry.split())
             metrics['jobs'] = 1
@@ -227,7 +233,7 @@ def run(sock, delay):
                 #   pools.chtc.jobs.xferstats.submit-3_chtc_wisc_edu.\
                 #   University_of_Wisconsin-Madison.Download.attr
                 if (key != "JobId") and (key != "dest"):
-                    message = ".".join([SCHEMA, HOSTNAME, pool_site, xfer_type, key])
+                    message = ".".join([SCHEMA, HOSTNAME, origin, pool_site, xfer_type, key])
 
                     # Store the metrics, aggregate on duplicate key
                     if (epoch, message) in agg_metrics:
