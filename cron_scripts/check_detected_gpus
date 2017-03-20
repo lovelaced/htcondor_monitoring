@@ -1,0 +1,2 @@
+detectedgpus=$(/usr/bin/condor_status -const 'partitionableslot==True && DetectedGpus>0' -af detectedgpus | /usr/bin/paste -sd+ | /usr/bin/bc)
+/bin/echo "pools.chtc.slots.gpus.detected_gpus $detectedgpus $(date +%s)" | /usr/bin/nc -w30 localhost 2003

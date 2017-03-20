@@ -1,0 +1,3 @@
+#!/bin/bash
+freegpus=$(/usr/bin/condor_status -const 'partitionableslot==True && Gpus>0' -af gpus | /usr/bin/paste -sd+ | /usr/bin/bc)
+/bin/echo "pools.chtc.slots.gpus.free_gpus $freegpus $(date +%s)" | /usr/bin/nc -w30 localhost 2003
